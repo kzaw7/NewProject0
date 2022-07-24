@@ -1,8 +1,10 @@
-package com.khinezaw;
+package com.khinezaw.Model;
 
-public class Customer extends User{
+import com.khinezaw.Model.User;
 
-    public Customer(int id, String username, String password, String name, int balance) {
+public class Customer extends User {
+
+    public Customer() {
     }
 
     public Customer(int id, String name, String email, String password) {

@@ -1,7 +1,6 @@
-package com.khinezaw;
+package com.khinezaw.Factory;
 
 import java.sql.Connection;
-import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ResourceBundle;

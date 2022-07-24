@@ -1,4 +1,7 @@
-package com.khinezaw;
+package com.khinezaw.Factory;
+
+import com.khinezaw.BankingDaoImpl;
+import com.khinezaw.Repository.BankingDao;
 
 public class BankingDaoFactory {
     public static BankingDao dao;

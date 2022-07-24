@@ -1,6 +1,10 @@
 package com.khinezaw;
 
-import jdk.jshell.Snippet;
+import com.khinezaw.Factory.ConnectionFactory;
+import com.khinezaw.Model.Customer;
+import com.khinezaw.Model.Employee;
+import com.khinezaw.Model.User;
+import com.khinezaw.Repository.BankingDao;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -22,6 +26,7 @@ public class BankingDaoImpl implements BankingDao {
         if(isEmployee) {
             user = new Employee();
             column = "Employee";
+            userType = "employee";
         }
         else {
             user = new Customer();
@@ -31,8 +36,7 @@ public class BankingDaoImpl implements BankingDao {
         user.setId(id);
         user.setPassword(password);
         String sql = "SELECT * FROM " + column + "_ID = " + user.getId() + " AND Password = '" + user.getPassword() + "'";
-        Statement statement = connection.createStatement();
-        ResultSet resultSet = statement.executeQuery(sql);
+        ResultSet resultSet = getQuery(sql);
         if(resultSet.next()){
             user.setId(resultSet.getInt(1));
             user.setPassword(resultSet.getString(2));
@@ -42,6 +46,8 @@ public class BankingDaoImpl implements BankingDao {
         }
         return null;
     }
+
+
     @Override
     public void newAccount(String name, String email, String password) throws SQLException {
         String sql;
@@ -57,54 +63,145 @@ public class BankingDaoImpl implements BankingDao {
         if(preparedStatement.executeUpdate() > 0){
             System.out.println("New customer created!");
             sql = "Select * FROM customer WHERE Name = '" + customer.getName() +"'";
-            Statement statement = connection.createStatement();
-            ResultSet resultSet = statement.executeQuery(sql);
+            ResultSet resultSet = getQuery(sql);
             if(resultSet.next()) {
                 int id = resultSet.getInt(1);
                 System.out.println("Your customer ID: " + id);
                 customer.setId(id);
-                createAccount(customer);
+                createAccount(customer, type);
                 System.out.println("Please wait until an employee approve of your bank account!");
             }
         }
         else System.out.println("Customer name/email already exist");
     }
     @Override
-    public void createAccount(User customer) throws SQLException {
-        String sql = "INSERT INTO account(Customer_ID, Account_Type, Amount, Daily_Limit, Status) VALUES (?,?,?,?,?)";
+    public void applyAccount(User customer) throws SQLException {
+        String sql = "INSERT INTO account(Customer_ID, Account_Type, Amount, Status) VALUES (?,?,?,?,?)";
         PreparedStatement preparedStatement = connection.prepareStatement(sql);
         preparedStatement.setInt(1, customer.getId());
-        preparedStatement.setInt(2, 0);
+        preparedStatement.setInt(2, String.valueOf(type));
         preparedStatement.setInt(3, 0);
-        //Add account status if possible
+        preparedStatement.setInt(4, 0);
+        preparedStatement.setString(5, String.valueOf(Status.pending));
         if(preparedStatement.executeUpdate() > 0) System.out.println("Account waiting for approval!");
         else System.out.println("Please try again later");
     }
-
-    //Case 1:so, so
     @Override
-    public String getNameByUsername(String username, String password) throws SQLException {
-        String sql = "select username from banking where name=" + username;
-        Statement statement = connection.createStatement();
-        ResultSet resultSet = statement.executeQuery(sql);
-        while (resultSet.next()) {
-            username = resultSet.getString(1);
+    public void withdraw(User customer, int id, int amount, boolean bypass) throws SQLException {
+        if(amount < 0) System.out.println("Please enter an amount larger than 0!");
+        else {
+            //Account account = new Account();
+            int pass;
+            if(bypass) pass = 1;
+            else pass = 0;
+            String sql = "CALL withdraw(?, ?, ?, ?, ?)";
+            CallableStatement callableStatement = connection.prepareCall(sql);
+            callableStatement.setInt(1, customer.getId());
+            callableStatement.setInt(2, id);
+            callableStatement.setInt(3, amount);
+            callableStatement.setInt(4, pass);
+            callableStatement.registerOutParameter(5, Types.VARCHAR);
+            callableStatement.execute();
+            System.out.println(callableStatement.getString(5));
         }
-        return username;
-    }
-
-    //case 2: apply banking (worked)
     @Override
-    public void applyBanking(Customer banking) throws SQLException {
-        String sql = "INSERT INTO BANKING (username, password, name, email) values (?, ?, ?, ?)";
-        PreparedStatement preparedStatement = connection.prepareStatement(sql);
-        preparedStatement.setString(1, banking.getUsername());
-        preparedStatement.setString(2, banking.getPassword());
-        preparedStatement.setString(3, banking.getName());
-        preparedStatement.setString(4, banking.getEmail());
-        if (preparedStatement.executeUpdate() > 0) System.out.println("Thank you for registering a new account!");
-        else System.out.println("Oops! something went wrong");
-    }
+    public void deposit(User customer, int id, int amount, boolean bypass) throws SQLException {
+        if(amount < 0) System.out.println("Please enter an amount larger than 0!");
+        else {
+            int pass;
+            if (bypass) pass = 1;
+            else pass = 0;
+            String sql = "CALL deposit(?, ?, ?, ?, ?)";
+            CallableStatement callableStatement = connection.prepareCall(sql);
+            callableStatement.setInt(1, customer.getId());
+            callableStatement.setInt(2, id);
+            callableStatement.setInt(3, amount);
+            callableStatement.setInt(4, pass);
+            callableStatement.registerOutParameter(5, Types.VARCHAR);
+            callableStatement.execute();
+            System.out.println(callableStatement.getString(5));
+        }
+            @Override
+            public void transferMoney(User customer, int yourAccount, int otherAccount, int amount, Money_Transfer moneyTransfer) throws SQLException {
+                String sql;
+                sql = "SELECT * FROM account WHERE Account_Number = " + yourAccount + " AND Customer_ID = " + customer.getId();
+                ResultSet resultSet = getQuery(sql);
+                if(resultSet.next()) {
+                    sql = "INSERT INTO money_transfer(Starting_Account, type, Amount, Ending_Account) VALUES (?,?,?,?)";
+                    PreparedStatement preparedStatement = connection.prepareStatement(sql);
+                    preparedStatement.setInt(1, yourAccount);
+                    preparedStatement.setString(2, String.valueOf(moneyTransfer));
+                    preparedStatement.setInt(3, amount);
+                    preparedStatement.setInt(4, otherAccount);
+                    if (preparedStatement.executeUpdate() > 0) System.out.println("Money transfer is now pending!");
+                    else System.out.println("Something went wrong!");
+                }
+                else System.out.println("At least 1 of your account must be involved!");
+            }
+            @Override
+            public List<Transaction> viewTransaction() throws SQLException{
+                List<Transaction> transactionList = new ArrayList<>();
+                String sql = "SELECT * FROM transaction";
+                ResultSet resultSet = getQuery(sql);
+                while(resultSet.next()){
+                    int id = resultSet.getInt(1);
+                    int account = resultSet.getInt(2);
+                    String transaction = resultSet.getString(3);
+                    int amount = resultSet.getInt(4);
+                    transactionList.add(new Transaction(id, account, transaction, amount));
+                }
+                return transactionList;
+            }
+            @Override
+            public List<Account> getCustomerAccount(int customerID) throws SQLException {
+                List<Account> accounts = new ArrayList<>();
+                String sql = "SELECT * FROM account WHERE Customer_ID = " + customerID;
+                ResultSet resultSet = getQuery(sql);
+                while (resultSet.next()) {
+                    int id = resultSet.getInt(1);
+                    Account_Type type = Account_Type.valueOf(resultSet.getString(3));
+                    int amount = resultSet.getInt(4);
+                    int limit = resultSet.getInt(5);
+                    Status status = Status.valueOf(resultSet.getString(6));
+                    accounts.add(new Account(id, customerID, type, amount, limit, status));
+                }
+                return accounts;
+            }
+            @Override
+            public void accountApproval(Account account) throws SQLException {
+                String sql;
+                boolean accountExist = false;
+                List<Account> accountList = new ArrayList<>();
+                sql = "Select * FROM account WHERE Status = 'pending'";
+                ResultSet resultSet = getQuery(sql);
+
+                while(resultSet.next()) {
+                    Account newAccount = new Account();
+                    newAccount.setAccountNumber(resultSet.getInt(1));
+                    newAccount.setStatus(Status.valueOf(resultSet.getString(6)));
+                    accountList.add(newAccount);
+                }
+                for (Account value : accountList) {
+                    if (account.getAccountNumber() == value.getAccountNumber()) {
+                        if (account.getStatus() == Status.approved) {
+                            if(account.getAccountType() == Account_Type.saving){
+                                System.out.print("Please enter a daily limit for the customer: ");
+                                int limit = Main.getNumber();
+                                sql = "UPDATE account SET Status = ? , Daily_Limit " + limit + " WHERE Account number";
+                            }
+                            else  sql = "UPDATE account SET Status = ? WHERE Account_Number = ?";
+                        }
+                        else sql = "UPDATE account SET status = ?, Daily_Limit = 0 WHERE Account_Number = ?";
+                        PreparedStatement preparedStatement = connection.prepareStatement(sql);
+                        preparedStatement.setString(1, account.getStatus().toString());
+                        preparedStatement.setInt(2, account.getAccountNumber());
+                        if (preparedStatement.executeUpdate() > 0)
+                            System.out.println("Account Number #" + account.getAccountNumber() + " have been " + account.getStatus() + "!");
+                        accountExist = true;
+                    }
+                }
+                if(!accountExist) System.out.println("Account not found in pending!");
+            }
 
     // case 3: view balance (worked)
     @Override
@@ -119,104 +216,3 @@ public class BankingDaoImpl implements BankingDao {
         return amount;
     }
 
-    //Case: 4 deposit worked
-    @Override
-        public void depositBanking(Customer balance) throws SQLException {
-        String sql = "update banking set balance = " + balance + " where id =" + balance.getId();
-        PreparedStatement preparedStatement = connection.prepareStatement(sql);
-        preparedStatement.executeUpdate();
-        System.out.println("You have deposited: ");
-
-    }
-
-    @Override  //Case 4: deposit worked
-    public void updateBanking(Customer banking) {
-        String sql = "update banking set balance = ? where id = ?";
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-            preparedStatement.setInt(1, banking.getBalance());
-            preparedStatement.setInt(2, banking.getId());
-            preparedStatement.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    // Case: 5 withdraw
-    @Override
-    public void withdrawBanking(Customer balance) {
-        String sql = "update banking set balance = ? where id = ?";
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-            preparedStatement.setInt(1, balance.getBalance());
-            preparedStatement.setInt(2, balance.getId());
-            preparedStatement.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    @Override
-    public void transferBanking(int balance) throws SQLException {
-        String sql = "insert into banking (balance) values (?)";
-        PreparedStatement preparedStatement = connection.prepareStatement(sql);
-        int count = preparedStatement.executeUpdate();
-        if (count > 0)
-            System.out.println("You have withdraw: ");
-        else
-            System.out.println("Withdrawal Failed: ");
-    }
-
-    @Override
-    public void acceptBanking(int balance) throws SQLException {
-        String sql = "insert into banking (balance) values (?)";
-        PreparedStatement preparedStatement = connection.prepareStatement(sql);
-        int count = preparedStatement.executeUpdate();
-        if (count > 0)
-            System.out.println("You have accepted: ");
-        else
-            System.out.println("Acceptance Failed: ");
-    }
-
-    @Override
-    public void acceptorrejectBanking(Customer banking) throws SQLException {
-        String sql = "insert into banking (username, password) values (?, ?)";
-        PreparedStatement preparedStatement = connection.prepareStatement(sql);
-        preparedStatement.setString(1, banking.getUsername());
-        preparedStatement.setString(2, banking.getPassword());
-        int count = preparedStatement.executeUpdate();
-        if (count > 0)
-            System.out.println("Thank you, your account is being reviewed");
-        else
-            System.out.println("Sorry, you can't proceed at the moment");
-
-    }
-
-    @Override
-    public void acceptmoneyBanking(int balance) throws SQLException {
-        String sql = "insert into banking (balance) values (?)";
-        PreparedStatement preparedStatement = connection.prepareStatement(sql);
-        int count = preparedStatement.executeUpdate();
-        if (count > 0)
-            System.out.println("You are accepted: ");
-        else
-            System.out.println("Acceptance failed: ");
-    }
-
-    //Case 11: view log
-    @Override
-    public List<Customer> viewBanking() throws SQLException {
-        List<Customer> users = new ArrayList<>();
-        String sql = "select * from banking";
-        Statement statement = connection.createStatement();
-        ResultSet resultSet = statement.executeQuery(sql);
-        while (resultSet.next()) {
-            int id = resultSet.getInt(1);
-            String username = resultSet.getString(2);
-            String password = resultSet.getString(3);
-            String name = resultSet.getString(4);
-            int balance = resultSet.getInt(5);
-            User user = new Customer(id, username, password, name, balance);
-            users.add((Customer) user);
-        }
-        return users;
-    }
-}
