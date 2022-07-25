@@ -3,14 +3,14 @@ package com.khinezaw.Model;
 enum Status{
     pending, approved, declined
 }
-enum Account_Type{
+public enum Account_Type{
     checking, saving
 }
 
 public class Account {
     private int accountNumber;
     private int customerID;
-    private Account_Type accountType;
+    private Account_Type account_Type;
     private int amount;
     private Status status;
 
@@ -20,7 +20,7 @@ public class Account {
     public Account(int accountNumber, int customerID, Account_Type accountType, int amount, int limit, Status status) {
         this.accountNumber = accountNumber;
         this.customerID = customerID;
-        this.accountType = accountType;
+        this.account_Type = accountType;
         this.amount = amount;
         this.status = status;
     }
@@ -42,11 +42,11 @@ public class Account {
     }
 
     public Account_Type getAccountType() {
-        return accountType;
+        return account_Type;
     }
 
     public void setAccountType(Account_Type accountType) {
-        this.accountType = accountType;
+        this.account_Type = accountType;
     }
 
     public int getAmount() {
@@ -70,7 +70,7 @@ public class Account {
         return "Account{" +
                 "accountNumber=" + accountNumber +
                 ", customerID=" + customerID +
-                ", accountType=" + accountType +
+                ", accountType=" + account_Type +
                 ", amount=" + amount +
                 ", status=" + status +
                 '}';

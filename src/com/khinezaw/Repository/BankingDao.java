@@ -1,5 +1,6 @@
 package com.khinezaw.Repository;
 
+import com.khinezaw.Model.Account;
 import com.khinezaw.Model.Customer;
 import com.khinezaw.Model.User;
 
@@ -11,21 +12,13 @@ public interface BankingDao {
 
    public User getUser(int id, String password, boolean isEmployee) throws SQLException;
    void newAccount(String name, String email, String password) throws SQLException;
-   void createAccount(User customer) throws SQLException;
-   String getNameByUsername(String username, String password) throws SQLException;
-    int getBalanceById(int id) throws SQLException;
-    void applyBanking(Customer banking) throws SQLException;
-    void updateBanking(Customer banking) throws SQLException;
-
-    void transferBanking(int balance) throws SQLException;
-
-    void acceptBanking(int balance) throws SQLException;
-
-    void acceptorrejectBanking(Customer banking) throws SQLException;
-
-    void acceptmoneyBanking(int balance) throws SQLException;
-    void depositBanking(Customer balance) throws SQLException;
-    void withdrawBanking(Customer balance);
-    List<Customer> viewBanking() throws SQLException;
+   void applyAccount(User customer) throws SQLException;
+    void withdraw(User customer, int id, int amount, boolean bypass) throws SQLException;
+    void deposit(User customer, int id, int amount, boolean bypass) throws SQLException;
+    void transferMoney (User customer,int yourAccount, int otherAccount, int amount, Money_Transfer moneyTransfer) throws SQLException;
+    List<Transaction> viewTransaction () throws SQLException;
+    List<Account> getCustomerAccount (int customerID) throws SQLException;
+    void accountApproval (Account account) throws SQLException;
+    void accountDenial (Account account) throws SQLException;
 }
 

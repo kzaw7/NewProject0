@@ -3,9 +3,11 @@ package com.khinezaw;
 import com.khinezaw.Factory.ConnectionFactory;
 import com.khinezaw.Model.Customer;
 import com.khinezaw.Model.Employee;
+import com.khinezaw.Model.Account;
 import com.khinezaw.Model.User;
 import com.khinezaw.Repository.BankingDao;
 
+import java.io.ObjectInputFilter;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,7 +20,7 @@ public class BankingDaoImpl implements BankingDao {
 
         this.connection = ConnectionFactory.getConnection();
     }
-    @Override
+    @Override//1
     public User getUser(int id, String password, boolean isEmployee) throws SQLException {
         User user;
         String column;
@@ -47,8 +49,7 @@ public class BankingDaoImpl implements BankingDao {
         return null;
     }
 
-
-    @Override
+    @Override//2
     public void newAccount(String name, String email, String password) throws SQLException {
         String sql;
         Customer customer = new Customer();
@@ -60,6 +61,7 @@ public class BankingDaoImpl implements BankingDao {
         preparedStatement.setString(1, customer.getName());
         preparedStatement.setString(2, customer.getEmail());
         preparedStatement.setString(3, customer.getPassword());
+        Statement statement = connection.createStatement();
         if(preparedStatement.executeUpdate() > 0){
             System.out.println("New customer created!");
             sql = "Select * FROM customer WHERE Name = '" + customer.getName() +"'";
@@ -68,13 +70,14 @@ public class BankingDaoImpl implements BankingDao {
                 int id = resultSet.getInt(1);
                 System.out.println("Your customer ID: " + id);
                 customer.setId(id);
-                createAccount(customer, type);
+                createAccount(customer);
                 System.out.println("Please wait until an employee approve of your bank account!");
             }
         }
         else System.out.println("Customer name/email already exist");
     }
-    @Override
+
+    @Override//3
     public void applyAccount(User customer) throws SQLException {
         String sql = "INSERT INTO account(Customer_ID, Account_Type, Amount, Status) VALUES (?,?,?,?,?)";
         PreparedStatement preparedStatement = connection.prepareStatement(sql);
@@ -86,7 +89,7 @@ public class BankingDaoImpl implements BankingDao {
         if(preparedStatement.executeUpdate() > 0) System.out.println("Account waiting for approval!");
         else System.out.println("Please try again later");
     }
-    @Override
+    @Override//4
     public void withdraw(User customer, int id, int amount, boolean bypass) throws SQLException {
         if(amount < 0) System.out.println("Please enter an amount larger than 0!");
         else {
@@ -104,29 +107,29 @@ public class BankingDaoImpl implements BankingDao {
             callableStatement.execute();
             System.out.println(callableStatement.getString(5));
         }
-    @Override
+    @Override//5
     public void deposit(User customer, int id, int amount, boolean bypass) throws SQLException {
-        if(amount < 0) System.out.println("Please enter an amount larger than 0!");
-        else {
-            int pass;
-            if (bypass) pass = 1;
-            else pass = 0;
-            String sql = "CALL deposit(?, ?, ?, ?, ?)";
-            CallableStatement callableStatement = connection.prepareCall(sql);
-            callableStatement.setInt(1, customer.getId());
-            callableStatement.setInt(2, id);
-            callableStatement.setInt(3, amount);
-            callableStatement.setInt(4, pass);
-            callableStatement.registerOutParameter(5, Types.VARCHAR);
-            callableStatement.execute();
-            System.out.println(callableStatement.getString(5));
-        }
-            @Override
-            public void transferMoney(User customer, int yourAccount, int otherAccount, int amount, Money_Transfer moneyTransfer) throws SQLException {
+            if (amount < 0) System.out.println("Please enter an amount larger than 0!");
+            else {
+                int pass;
+                if (bypass) pass = 1;
+                else pass = 0;
+                String sql = "CALL deposit(?, ?, ?, ?, ?)";
+                CallableStatement callableStatement = connection.prepareCall(sql);
+                callableStatement.setInt(1, customer.getId());
+                callableStatement.setInt(2, id);
+                callableStatement.setInt(3, amount);
+                callableStatement.setInt(4, pass);
+                callableStatement.registerOutParameter(5, Types.VARCHAR);
+                callableStatement.execute();
+                System.out.println(callableStatement.getString(5));
+            }
+            @Override//6
+            public void transferMoney (User customer,int yourAccount, int otherAccount, int amount, Money_Transfer moneyTransfer) throws SQLException {
                 String sql;
                 sql = "SELECT * FROM account WHERE Account_Number = " + yourAccount + " AND Customer_ID = " + customer.getId();
-                ResultSet resultSet = getQuery(sql);
-                if(resultSet.next()) {
+                ResultSet resultSet = query.getQuery(sql);
+                if (resultSet.next()) {
                     sql = "INSERT INTO money_transfer(Starting_Account, type, Amount, Ending_Account) VALUES (?,?,?,?)";
                     PreparedStatement preparedStatement = connection.prepareStatement(sql);
                     preparedStatement.setInt(1, yourAccount);
@@ -135,15 +138,14 @@ public class BankingDaoImpl implements BankingDao {
                     preparedStatement.setInt(4, otherAccount);
                     if (preparedStatement.executeUpdate() > 0) System.out.println("Money transfer is now pending!");
                     else System.out.println("Something went wrong!");
-                }
-                else System.out.println("At least 1 of your account must be involved!");
+                } else System.out.println("At least 1 of your account must be involved!");
             }
-            @Override
-            public List<Transaction> viewTransaction() throws SQLException{
+            @Override//7
+            public List<Transaction> viewTransaction () throws SQLException {
                 List<Transaction> transactionList = new ArrayList<>();
                 String sql = "SELECT * FROM transaction";
                 ResultSet resultSet = getQuery(sql);
-                while(resultSet.next()){
+                while (resultSet.next()) {
                     int id = resultSet.getInt(1);
                     int account = resultSet.getInt(2);
                     String transaction = resultSet.getString(3);
@@ -152,8 +154,8 @@ public class BankingDaoImpl implements BankingDao {
                 }
                 return transactionList;
             }
-            @Override
-            public List<Account> getCustomerAccount(int customerID) throws SQLException {
+            @Override//8
+            public List<Account> getCustomerAccount ( int customerID) throws SQLException {
                 List<Account> accounts = new ArrayList<>();
                 String sql = "SELECT * FROM account WHERE Customer_ID = " + customerID;
                 ResultSet resultSet = getQuery(sql);
@@ -167,15 +169,15 @@ public class BankingDaoImpl implements BankingDao {
                 }
                 return accounts;
             }
-            @Override
-            public void accountApproval(Account account) throws SQLException {
+            @Override//9
+            public void accountApproval (Account account) throws SQLException {
                 String sql;
                 boolean accountExist = false;
                 List<Account> accountList = new ArrayList<>();
                 sql = "Select * FROM account WHERE Status = 'pending'";
                 ResultSet resultSet = getQuery(sql);
 
-                while(resultSet.next()) {
+                while (resultSet.next()) {
                     Account newAccount = new Account();
                     newAccount.setAccountNumber(resultSet.getInt(1));
                     newAccount.setStatus(Status.valueOf(resultSet.getString(6)));
@@ -184,14 +186,12 @@ public class BankingDaoImpl implements BankingDao {
                 for (Account value : accountList) {
                     if (account.getAccountNumber() == value.getAccountNumber()) {
                         if (account.getStatus() == Status.approved) {
-                            if(account.getAccountType() == Account_Type.saving){
+                            if (account.getAccountType() == Account_Type.saving) {
                                 System.out.print("Please enter a daily limit for the customer: ");
                                 int limit = Main.getNumber();
                                 sql = "UPDATE account SET Status = ? , Daily_Limit " + limit + " WHERE Account number";
-                            }
-                            else  sql = "UPDATE account SET Status = ? WHERE Account_Number = ?";
-                        }
-                        else sql = "UPDATE account SET status = ?, Daily_Limit = 0 WHERE Account_Number = ?";
+                            } else sql = "UPDATE account SET Status = ? WHERE Account_Number = ?";
+                        } else sql = "UPDATE account SET status = ?, Daily_Limit = 0 WHERE Account_Number = ?";
                         PreparedStatement preparedStatement = connection.prepareStatement(sql);
                         preparedStatement.setString(1, account.getStatus().toString());
                         preparedStatement.setInt(2, account.getAccountNumber());
@@ -200,11 +200,15 @@ public class BankingDaoImpl implements BankingDao {
                         accountExist = true;
                     }
                 }
-                if(!accountExist) System.out.println("Account not found in pending!");
+                if (!accountExist) System.out.println("Account not found in pending!");
+            }
+            @Override
+            public void accountDenial (Account account) throws SQLException {
+
             }
 
     // case 3: view balance (worked)
-    @Override
+   /* @Override
     public int getBalanceById(int id) throws SQLException {
         int amount = 0;
         String sql = "select balance from banking where id=" + id;
